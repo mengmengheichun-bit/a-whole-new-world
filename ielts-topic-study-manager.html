@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IELTS Topic Study Manager</title>
+<style>
+:root{
+  --bg:#f6f7fb;--card:#fff;--text:#172033;--muted:#6b7280;--line:#e5e7eb;
+  --accent:#315efb;--soft:#eef2ff;--danger:#b91c1c;--shadow:0 10px 30px rgba(20,30,60,.08);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.app{max-width:1450px;margin:auto;padding:22px}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.brand{font-size:26px;font-weight:800;margin-right:auto}
+.btn{border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 14px}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.danger{color:var(--danger)}
+.mainTabs,.subTabs{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:10px 16px}
+.tab.active{background:var(--text);color:#fff;border-color:var(--text)}
+.subtab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.toolbar{display:grid;grid-template-columns:minmax(220px,1fr) 180px 180px 180px;gap:10px;margin:14px 0}
+.field{width:100%;border:1px solid var(--line);background:#fff;border-radius:12px;padding:11px 12px}
+.layout{display:grid;grid-template-columns:320px 1fr;gap:18px}
+.panel{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}
+.sidebar{padding:12px;min-height:70vh}
+.sideTitle{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding:8px 10px}
+.navitem{width:100%;text-align:left;border:0;background:transparent;border-radius:12px;padding:11px;margin:2px 0}
+.navitem:hover,.navitem.active{background:var(--soft)}
+.navname{font-weight:700}
+.navmeta{font-size:12px;color:var(--muted);margin-top:3px}
+.main{padding:20px}
+.head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:18px}
+h1{margin:0 0 4px;font-size:26px}
+.muted{color:var(--muted)}
+.card{border:1px solid var(--line);border-radius:14px;padding:14px;margin:10px 0;background:#fff}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tag{font-size:11px;padding:5px 8px;border-radius:999px;background:#f3f4f6;color:#4b5563}
+.tag.topic{background:#eef2ff;color:#3730a3}
+.prompt{font-size:16px;line-height:1.55;margin:10px 0}
+.cardgrid{display:grid;grid-template-columns:170px 1fr;gap:10px;margin-top:10px}
+.notes{width:100%;min-height:42px;border:1px solid var(--line);border-radius:10px;padding:9px;resize:vertical}
+.progress{height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:7px}
+.progress>div{height:100%;background:var(--accent)}
+.pill{font-size:12px;background:#f3f4f6;border-radius:999px;padding:6px 9px}
+.empty{text-align:center;color:var(--muted);padding:45px 20px}
+.fab{position:fixed;right:24px;bottom:24px;border:0;border-radius:999px;background:var(--accent);color:#fff;padding:14px 18px;font-weight:700;box-shadow:var(--shadow)}
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:18px;z-index:50}
+.modal.show{display:flex}
+.modalbox{background:#fff;border-radius:18px;padding:20px;max-width:760px;width:100%;max-height:90vh;overflow:auto}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.modal textarea{min-height:110px}
+.actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.sectionLabel{font-size:13px;font-weight:800;margin:18px 0 8px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.sidebar{min-height:auto;max-height:300px;overflow:auto}.toolbar{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.app{padding:13px}.toolbar,.grid2,.cardgrid{grid-template-columns:1fr}.brand{font-size:22px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="brand">IELTS Topic Study Manager</div>
+    <button class="btn" id="exportBtn">Export data</button>
+    <button class="btn" id="importBtn">Import data</button>
+    <button class="btn danger" id="clearBtn">Clear all</button>
+  </div>
+
+  <div class="mainTabs">
+    <button class="tab mainTab active" data-section="wt1">Writing Task 1</button>
+    <button class="tab mainTab" data-section="wt2">Writing Task 2</button>
+    <button class="tab mainTab" data-section="speaking">Speaking</button>
+  </div>
+
+  <div class="subTabs" id="subTabs"></div>
+
+  <div class="toolbar">
+    <input class="field" id="search" placeholder="Search topic, prompt, test...">
+    <select class="field" id="topicFilter"><option value="">All topics</option></select>
+    <select class="field" id="statusFilter">
+      <option value="">All status</option>
+      <option value="not_started">Not started</option>
+      <option value="learning">Learning</option>
+      <option value="mastered">Mastered</option>
+    </select>
+    <select class="field" id="extraFilter"><option value="">All</option></select>
+  </div>
+
+  <div class="layout">
+    <aside class="panel sidebar">
+      <div class="sideTitle" id="sideTitle"></div>
+      <div id="nav"></div>
+    </aside>
+
+    <main class="panel main">
+      <div id="content"></div>
+    </main>
+  </div>
+</div>
+
+<button class="fab" id="addBtn">+ Add new</button>
+
+<div class="modal" id="itemModal">
+  <div class="modalbox">
+    <h2 id="modalTitle">Add item</h2>
+    <div id="formFields"></div>
+    <div class="actions">
+      <button class="btn" id="cancelItem">Cancel</button>
+      <button class="btn primary" id="saveItem">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="dataModal">
+  <div class="modalbox">
+    <h2>Import data</h2>
+    <textarea class="field" id="dataArea" style="min-height:320px;font-family:ui-monospace,monospace"></textarea>
+    <div class="actions">
+      <button class="btn" id="cancelData">Cancel</button>
+      <button class="btn primary" id="doImport">Import</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const KEY='ieltsStudyManagerV1';
+
+const SAMPLE = {
+  wt1:[
+    {id:'w1a',type:'Line graph',topic:'Museum visitors',prompt:'The line graph shows the number of visitors to three museums between 1991 and 2007.',status:'learning',notes:''},
+    {id:'w1b',type:'Table',topic:'Healthcare',prompt:'The table compares healthcare expenditure in five countries in 2002.',status:'mastered',notes:''}
+  ],
+  wt2:[
+    {id:'w2a',topic:'Environment',subtopic:'Fossil fuels',prompt:'The international community must act immediately to ensure all nations reduce their consumption of fossil fuels. To what extent do you agree or disagree?',status:'learning',notes:''},
+    {id:'w2b',topic:'Family / Education',subtopic:'Parental pressure',prompt:'Nowadays, some parents put a lot of pressure on their children. What is the reason for this? Is this a positive or negative development?',status:'mastered',notes:''}
+  ],
+  speaking:[
+    {id:'s1',test:'Test 01',part:'Part 1',topic:'Transport',subtopic:'Daily travel',prompt:'How do you usually travel around your city?',status:'learning',notes:''},
+    {id:'s2',test:'Test 01',part:'Part 2',topic:'Transport',subtopic:'Journey',prompt:'Describe a journey that you remember well.',status:'not_started',notes:''},
+    {id:'s3',test:'Test 01',part:'Part 3',topic:'Transport',subtopic:'Public transport',prompt:'Why do some people prefer public transport to private cars?',status:'not_started',notes:''},
+    {id:'s4',test:'Test 02',part:'Part 3',topic:'Transport',subtopic:'Traffic',prompt:'What can cities do to reduce traffic congestion?',status:'mastered',notes:''}
+  ]
+};
+
+let db = load();
+let state={section:'wt1',view:'type',selected:null,search:'',topic:'',status:'',extra:''};
+
+function load(){
+  try{
+    const x=JSON.parse(localStorage.getItem(KEY));
+    if(x && x.wt1 && x.wt2 && x.speaking) return x;
+  }catch(e){}
+  return JSON.parse(JSON.stringify(SAMPLE));
+}
+function save(){localStorage.setItem(KEY,JSON.stringify(db))}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+function uniq(a){return [...new Set(a.filter(Boolean))].sort((a,b)=>a.localeCompare(b))}
+function sectionItems(){return db[state.section]||[]}
+
+function sectionConfig(){
+  if(state.section==='wt1') return {
+    sub:[['type','By Chart Type'],['topic','By Topic']],
+    side: state.view==='type'?'Chart types':'Topics'
+  };
+  if(state.section==='wt2') return {
+    sub:[['topic','By Topic'],['subtopic','By Subtopic']],
+    side: state.view==='topic'?'Topics':'Subtopics'
+  };
+  return {
+    sub:[['test','By Test'],['topic','By Topic']],
+    side: state.view==='test'?'Tests':'Topics'
+  };
+}
+function ensureView(){
+  const valid=sectionConfig().sub.map(x=>x[0]);
+  if(!valid.includes(state.view)) state.view=valid[0];
+}
+function renderSubTabs(){
+  ensureView();
+  const el=document.getElementById('subTabs');
+  el.innerHTML=sectionConfig().sub.map(([v,label])=>`<button class="tab subtab ${state.view===v?'active':''}" data-view="${v}">${label}</button>`).join('');
+  el.querySelectorAll('.subtab').forEach(b=>b.onclick=()=>{state.view=b.dataset.view;state.selected=null;render()});
+}
+function filtered(){
+  const q=state.search.trim().toLowerCase();
+  return sectionItems().filter(x=>{
+    if(state.topic && x.topic!==state.topic) return false;
+    if(state.status && x.status!==state.status) return false;
+    if(state.extra){
+      if(state.section==='speaking' && x.part!==state.extra) return false;
+      if(state.section==='wt1' && x.type!==state.extra) return false;
+      if(state.section==='wt2' && x.subtopic!==state.extra) return false;
+    }
+    if(q && ![x.prompt,x.topic,x.subtopic,x.test,x.part,x.type,x.notes].join(' ').toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+function groupValue(x){
+  return x[state.view] || 'Uncategorized';
+}
+function groups(){
+  const m=new Map();
+  sectionItems().forEach(x=>{
+    const k=groupValue(x);
+    if(!m.has(k))m.set(k,[]);
+    m.get(k).push(x);
+  });
+  return [...m.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+}
+function completion(items){
+  return items.length?Math.round(items.filter(x=>x.status==='mastered').length/items.length*100):0;
+}
+function renderFilters(){
+  const items=sectionItems();
+  const topic=document.getElementById('topicFilter');
+  topic.innerHTML='<option value="">All topics</option>'+uniq(items.map(x=>x.topic)).map(x=>`<option ${x===state.topic?'selected':''}>${esc(x)}</option>`).join('');
+  const extra=document.getElementById('extraFilter');
+  let vals=[], label='All';
+  if(state.section==='speaking'){vals=['Part 1','Part 2','Part 3'];label='All Parts'}
+  if(state.section==='wt1'){vals=uniq(items.map(x=>x.type));label='All chart types'}
+  if(state.section==='wt2'){vals=uniq(items.map(x=>x.subtopic));label='All subtopics'}
+  extra.innerHTML=`<option value="">${label}</option>`+vals.map(x=>`<option ${x===state.extra?'selected':''}>${esc(x)}</option>`).join('');
+}
+function renderNav(){
+  const gs=groups();
+  document.getElementById('sideTitle').textContent=sectionConfig().side;
+  if(!state.selected || !gs.some(([k])=>k===state.selected)) state.selected=gs[0]?.[0]||null;
+  document.getElementById('nav').innerHTML=gs.map(([name,items])=>`
+    <button class="navitem ${state.selected===name?'active':''}" data-name="${esc(name)}">
+      <div class="navname">${esc(name)}</div>
+      <div class="navmeta">${items.length} item${items.length===1?'':'s'} · ${completion(items)}% mastered</div>
+      <div class="progress"><div style="width:${completion(items)}%"></div></div>
+    </button>`).join('') || '<div class="empty">No data yet.</div>';
+  document.querySelectorAll('.navitem').forEach(b=>b.onclick=()=>{state.selected=b.dataset.name;renderContent()});
+}
+function badges(x){
+  const b=[];
+  if(state.section==='wt1'){
+    b.push(`<span class="tag">${esc(x.type)}</span>`,`<span class="tag topic">${esc(x.topic)}</span>`);
+  }else if(state.section==='wt2'){
+    b.push(`<span class="tag topic">${esc(x.topic)}</span>`);
+    if(x.subtopic)b.push(`<span class="tag">${esc(x.subtopic)}</span>`);
+  }else{
+    b.push(`<span class="tag">${esc(x.test)}</span>`,`<span class="tag">${esc(x.part)}</span>`,`<span class="tag topic">${esc(x.topic)}</span>`);
+    if(x.subtopic)b.push(`<span class="tag">${esc(x.subtopic)}</span>`);
+  }
+  return b.join('');
+}
+function renderContent(){
+  const root=document.getElementById('content');
+  if(!state.selected){root.innerHTML='<div class="empty">Add a prompt to start.</div>';return}
+  const all=sectionItems().filter(x=>groupValue(x)===state.selected);
+  const items=filtered().filter(x=>groupValue(x)===state.selected);
+
+  let subtitle='';
+  if(state.section==='speaking'){
+    const tests=uniq(all.map(x=>x.test)).length;
+    const p1=all.filter(x=>x.part==='Part 1').length,p2=all.filter(x=>x.part==='Part 2').length,p3=all.filter(x=>x.part==='Part 3').length;
+    subtitle=state.view==='topic'?`${tests} tests · P1 ${p1} · P2 ${p2} · P3 ${p3}`:`${all.length} questions`;
+  }else subtitle=`${all.length} prompt${all.length===1?'':'s'}`;
+
+  root.innerHTML=`
+    <div class="head">
+      <div><h1>${esc(state.selected)}</h1><div class="muted">${subtitle}</div></div>
+      <div class="pill">${completion(all)}% mastered</div>
+    </div>
+    ${items.length?items.map(card).join(''):'<div class="empty">No items match the filters.</div>'}
+  `;
+  root.querySelectorAll('[data-status]').forEach(s=>s.onchange=()=>{
+    const item=sectionItems().find(x=>x.id===s.dataset.status); if(item){item.status=s.value;save();render()}
+  });
+  root.querySelectorAll('[data-notes]').forEach(t=>t.onchange=()=>{
+    const item=sectionItems().find(x=>x.id===t.dataset.notes); if(item){item.notes=t.value;save()}
+  });
+}
+function card(x){
+  return `<div class="card">
+    <div class="row">${badges(x)}</div>
+    <div class="prompt">${esc(x.prompt)}</div>
+    <div class="cardgrid">
+      <select class="field" data-status="${x.id}">
+        <option value="not_started" ${x.status==='not_started'?'selected':''}>Not started</option>
+        <option value="learning" ${x.status==='learning'?'selected':''}>Learning</option>
+        <option value="mastered" ${x.status==='mastered'?'selected':''}>Mastered</option>
+      </select>
+      <textarea class="notes" data-notes="${x.id}" placeholder="Ideas, vocabulary, mistakes, structure...">${esc(x.notes||'')}</textarea>
+    </div>
+  </div>`;
+}
+function render(){
+  renderSubTabs();renderFilters();renderNav();renderContent();
+}
+
+document.querySelectorAll('.mainTab').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.mainTab').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  state.section=b.dataset.section;
+  state.view = state.section==='wt1'?'type':state.section==='wt2'?'topic':'test';
+  state.selected=null;state.extra='';state.topic='';state.status='';state.search='';
+  document.getElementById('search').value='';
+  document.getElementById('statusFilter').value='';
+  render();
+});
+document.getElementById('search').oninput=e=>{state.search=e.target.value;renderContent()};
+document.getElementById('topicFilter').onchange=e=>{state.topic=e.target.value;renderContent()};
+document.getElementById('statusFilter').onchange=e=>{state.status=e.target.value;renderContent()};
+document.getElementById('extraFilter').onchange=e=>{state.extra=e.target.value;renderContent()};
+
+const modal=document.getElementById('itemModal');
+document.getElementById('addBtn').onclick=()=>{
+  const fields=document.getElementById('formFields');
+  document.getElementById('modalTitle').textContent =
+    state.section==='wt1'?'Add Writing Task 1 prompt':
+    state.section==='wt2'?'Add Writing Task 2 prompt':'Add Speaking question';
+
+  if(state.section==='wt1'){
+    fields.innerHTML=`
+      <div class="grid2">
+        <div><div class="sectionLabel">Chart type</div><select id="fType" class="field">
+          <option>Line graph</option><option>Bar chart</option><option>Pie chart</option><option>Table</option>
+          <option>Map</option><option>Process</option><option>Mixed charts</option><option>Other</option>
+        </select></div>
+        <div><div class="sectionLabel">Topic</div><input id="fTopic" class="field" placeholder="e.g. Transport"></div>
+      </div>
+      <div class="sectionLabel">Task / Prompt</div><textarea id="fPrompt" class="field" placeholder="Paste the full Writing Task 1 prompt here"></textarea>
+      <div class="sectionLabel">Notes</div><textarea id="fNotes" class="field" placeholder="Overview, vocabulary, mistakes..."></textarea>`;
+  }else if(state.section==='wt2'){
+    fields.innerHTML=`
+      <div class="grid2">
+        <div><div class="sectionLabel">Topic</div><input id="fTopic" class="field" placeholder="e.g. Environment"></div>
+        <div><div class="sectionLabel">Subtopic</div><input id="fSub" class="field" placeholder="e.g. Fossil fuels"></div>
+      </div>
+      <div class="sectionLabel">Essay question</div><textarea id="fPrompt" class="field" placeholder="Paste the full Writing Task 2 question here"></textarea>
+      <div class="sectionLabel">Notes</div><textarea id="fNotes" class="field" placeholder="Ideas, structure, vocabulary..."></textarea>`;
+  }else{
+    fields.innerHTML=`
+      <div class="grid2">
+        <div><div class="sectionLabel">Test name</div><input id="fTest" class="field" placeholder="e.g. Cambridge 19 Test 1"></div>
+        <div><div class="sectionLabel">Part</div><select id="fPart" class="field"><option>Part 1</option><option>Part 2</option><option>Part 3</option></select></div>
+        <div><div class="sectionLabel">Topic</div><input id="fTopic" class="field" placeholder="e.g. Transport"></div>
+        <div><div class="sectionLabel">Subtopic</div><input id="fSub" class="field" placeholder="e.g. Public transport"></div>
+      </div>
+      <div class="sectionLabel">Question / Cue card</div><textarea id="fPrompt" class="field" placeholder="Paste the speaking question here"></textarea>
+      <div class="sectionLabel">Notes</div><textarea id="fNotes" class="field" placeholder="Ideas, vocabulary, mistakes..."></textarea>`;
+  }
+  modal.classList.add('show');
+};
+document.getElementById('cancelItem').onclick=()=>modal.classList.remove('show');
+document.getElementById('saveItem').onclick=()=>{
+  const prompt=(document.getElementById('fPrompt')?.value||'').trim();
+  if(!prompt)return alert('Please enter the prompt/question.');
+  let item={id:uid(),prompt,status:'not_started',notes:(document.getElementById('fNotes')?.value||'').trim()};
+  if(state.section==='wt1'){
+    item.type=document.getElementById('fType').value;
+    item.topic=(document.getElementById('fTopic').value||'Other').trim()||'Other';
+  }else if(state.section==='wt2'){
+    item.topic=(document.getElementById('fTopic').value||'Other').trim()||'Other';
+    item.subtopic=(document.getElementById('fSub').value||'').trim();
+  }else{
+    item.test=(document.getElementById('fTest').value||'Unsorted Test').trim()||'Unsorted Test';
+    item.part=document.getElementById('fPart').value;
+    item.topic=(document.getElementById('fTopic').value||'Other').trim()||'Other';
+    item.subtopic=(document.getElementById('fSub').value||'').trim();
+  }
+  db[state.section].push(item);save();modal.classList.remove('show');state.selected=null;render();
+};
+
+document.getElementById('exportBtn').onclick=()=>{
+  const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ielts-study-manager-data.json';a.click();URL.revokeObjectURL(a.href);
+};
+const dm=document.getElementById('dataModal');
+document.getElementById('importBtn').onclick=()=>{document.getElementById('dataArea').value='';dm.classList.add('show')};
+document.getElementById('cancelData').onclick=()=>dm.classList.remove('show');
+document.getElementById('doImport').onclick=()=>{
+  try{
+    const x=JSON.parse(document.getElementById('dataArea').value);
+    if(!x.wt1||!x.wt2||!x.speaking)throw new Error();
+    db=x;save();dm.classList.remove('show');state.selected=null;render();
+  }catch(e){alert('Invalid data format.')}
+};
+document.getElementById('clearBtn').onclick=()=>{
+  if(confirm('Clear all IELTS study data?')){db={wt1:[],wt2:[],speaking:[]};save();state.selected=null;render()}
+};
+
+render();
+</script>
+</body>
+</html>
