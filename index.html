@@ -94,6 +94,7 @@
   const W2_KEY = 'ielts_writing_task_2_records_v1';
   const TOPIC_KEY = 'ielts_topics_v1';
   const SETS_KEY = 'ielts_sets_v1';
+  const MASTER_SYNC_KEY = 'ielts_master_synced_at_v1';
   const decode = value => decodeURIComponent(Array.from(atob(value), c => '%' + c.charCodeAt(0).toString(16).padStart(2,'0')).join(''));
   const read = (key, fallback=[]) => { try { const value = localStorage.getItem(key); return value ? JSON.parse(value) : fallback; } catch { return fallback; } };
   const write = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch { toast('Không thể lưu thêm: bộ nhớ trình duyệt có thể đã đầy.'); return false; } };
@@ -110,6 +111,7 @@
   let currentLibrary = 'w1';
   let groupMode = 'topic';
   let w2EditingId = null;
+  let pendingRemoteW1 = null;
 
   function toast(message){ const n=document.getElementById('notice'); n.textContent=message; n.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>n.classList.remove('show'),2600); }
   function setView(name){ document.querySelectorAll('.nav-btn[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===name)); document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===name+'View')); if(name==='library') renderLibrary(); }
@@ -118,7 +120,7 @@
   document.querySelectorAll('[data-library]').forEach(b=>b.addEventListener('click',()=>{ currentLibrary=b.dataset.library; groupMode=currentLibrary==='speaking'?'test':'topic'; document.querySelectorAll('[data-library]').forEach(x=>x.classList.toggle('active',x===b)); renderGroupControls(); renderLibrary(); }));
   function openPractice(name){ setView('practice'); document.querySelectorAll('[data-practice]').forEach(b=>b.classList.toggle('active',b.dataset.practice===name)); document.querySelectorAll('#practiceView .panel').forEach(p=>p.classList.toggle('active',p.id==='practice-'+name)); }
   document.getElementById('w1Topic').addEventListener('input', e => { try { writingFrame.contentWindow.__allInOneTopic=e.target.value.trim() || 'Chưa phân loại'; } catch {} });
-  window.addEventListener('message', e => { if(e.data?.type==='ielts-engine-ready' && e.data.engine==='w1') writingFrame.contentWindow.__allInOneTopic=document.getElementById('w1Topic').value.trim() || 'Chưa phân loại'; });
+  window.addEventListener('message', e => { if(e.data?.type==='ielts-engine-ready' && e.data.engine==='w1'){ writingFrame.contentWindow.__allInOneTopic=document.getElementById('w1Topic').value.trim() || 'Chưa phân loại'; if(pendingRemoteW1){ try{writingFrame.contentWindow.__IELTS_W1__?.setData(clone(pendingRemoteW1));pendingRemoteW1=null;}catch{} } } });
 
   const w2Question=document.getElementById('w2Question'), w2Topic=document.getElementById('w2Topic'), w2Subtopic=document.getElementById('w2Subtopic'), w2Essay=document.getElementById('w2Essay');
   function countWords(){ const t=w2Essay.value.trim(); document.getElementById('w2Words').textContent=t?t.split(/s+/).length:0; }
@@ -129,6 +131,16 @@
 
   function getW1(){ try { return writingFrame.contentWindow.__IELTS_W1__?.getData() || read(W1_KEY,[]); } catch { return read(W1_KEY,[]); } }
   function getSpeaking(){ return {topics:read(TOPIC_KEY,speakingSeed.topics||[]),sets:read(SETS_KEY,speakingSeed.sets||[])}; }
+  function validMaster(data){return data&&Array.isArray(data.writingTask1?.records)&&Array.isArray(data.writingTask2?.records)&&Array.isArray(data.speaking?.topics)&&Array.isArray(data.speaking?.sets);}
+  function mergeBy(remote,local,keyOf){const seen=new Set();const out=[];[...remote,...local].forEach(item=>{if(!item||typeof item!=='object')return;const key=keyOf(item);if(seen.has(key))return;seen.add(key);out.push(item);});return out;}
+  function mergeMaster(data){const localSpeaking=getSpeaking();return {
+    w1:mergeBy(data.writingTask1.records,getW1(),x=>x.id||[x.question,x.chartType,x.createdAt].join('|')),
+    w2:mergeBy(data.writingTask2.records,read(W2_KEY,[]),x=>x.id||[x.question,x.createdAt].join('|')),
+    topics:mergeBy(data.speaking.topics,localSpeaking.topics,x=>x.name||JSON.stringify(x)),
+    sets:mergeBy(data.speaking.sets,localSpeaking.sets,x=>x.name||JSON.stringify(x))
+  };}
+  function applyMaster(data,{announce=true}={}){if(!validMaster(data))throw Error('invalid');const merged=mergeMaster(data);write(W1_KEY,merged.w1);write(W2_KEY,merged.w2);write(TOPIC_KEY,merged.topics);write(SETS_KEY,merged.sets);pendingRemoteW1=merged.w1;try{writingFrame.contentWindow.__IELTS_W1__?.setData(clone(merged.w1));pendingRemoteW1=null;}catch{}speakingFrame.srcdoc=decode(SPEAKING_HTML);const stamp=data.exportedAt||new Date().toISOString();try{localStorage.setItem(MASTER_SYNC_KEY,stamp);}catch{}if(announce)toast('Đã đồng bộ dữ liệu từ master JSON.');if(document.getElementById('libraryView').classList.contains('active'))renderLibrary();}
+  async function loadRemoteMaster(){try{const response=await fetch('./ielts-master.json?ts='+Date.now(),{cache:'no-store'});if(!response.ok)return;const data=await response.json();if(!validMaster(data))return;const remoteTime=Date.parse(data.exportedAt||'')||1;const localTime=Date.parse(localStorage.getItem(MASTER_SYNC_KEY)||'')||0;if(remoteTime>localTime)applyMaster(data,{announce:true});}catch{/* Khi mở file local hoặc JSON chưa được upload, tiếp tục dùng dữ liệu trong trình duyệt. */}}
   function renderGroupControls(){ const modes=currentLibrary==='w1'?[['topic','Theo Topic'],['chartType','Theo Chart Type']]:currentLibrary==='w2'?[['topic','Theo Topic'],['subtopic','Theo Subtopic']]:[['test','Theo Test / Set'],['topic','Theo Topic']]; const box=document.getElementById('groupControls'); box.replaceChildren(); modes.forEach(([value,label])=>{const b=document.createElement('button');b.className='seg-btn'+(groupMode===value?' active':'');b.textContent=label;b.addEventListener('click',()=>{groupMode=value;renderGroupControls();renderLibrary();});box.append(b);}); }
   function textMatch(values,term){return values.filter(Boolean).join(' ').toLocaleLowerCase('vi').includes(term);}
   function addRecord(container,title,body,meta,onOpen){ const card=document.createElement('article');card.className='record';const h=document.createElement('h4');h.textContent=title;const p=document.createElement('p');p.textContent=body;const m=document.createElement('div');m.className='record-meta';meta.filter(Boolean).forEach(x=>{const s=document.createElement('span');s.textContent=x;m.append(s);});card.append(h,p,m);if(onOpen){const b=document.createElement('button');b.className='btn';b.textContent='Mở';b.addEventListener('click',onOpen);card.append(b);}container.append(card); }
@@ -141,10 +153,11 @@
   }
   document.getElementById('librarySearch').addEventListener('input',renderLibrary);
   function download(name,text){const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-  document.getElementById('masterExport').addEventListener('click',()=>{const speaking=getSpeaking();download('ielts-master.json',JSON.stringify({schemaVersion:1,exportedAt:new Date().toISOString(),writingTask1:{records:getW1()},writingTask2:{records:read(W2_KEY,[])},speaking},null,2));toast('Đã xuất master JSON.');});
+  document.getElementById('masterExport').addEventListener('click',()=>{const speaking=getSpeaking();const exportedAt=new Date().toISOString();const payload={schemaVersion:1,exportedAt,writingTask1:{records:getW1()},writingTask2:{records:read(W2_KEY,[])},speaking};try{localStorage.setItem(MASTER_SYNC_KEY,exportedAt);}catch{}download('ielts-master.json',JSON.stringify(payload,null,2));toast('Đã xuất master JSON. Upload file này cạnh index.html trên GitHub.');});
   document.getElementById('masterImport').addEventListener('click',()=>document.getElementById('masterFile').click());
-  document.getElementById('masterFile').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());const w1=data.writingTask1?.records,w2=data.writingTask2?.records,topics=data.speaking?.topics,sets=data.speaking?.sets;if(!Array.isArray(w1)||!Array.isArray(w2)||!Array.isArray(topics)||!Array.isArray(sets))throw Error('invalid');write(W1_KEY,w1);write(W2_KEY,w2);write(TOPIC_KEY,topics);write(SETS_KEY,sets);try{writingFrame.contentWindow.__IELTS_W1__?.setData(clone(w1));}catch{} speakingFrame.srcdoc=decode(SPEAKING_HTML);toast('Đã nhập master JSON.');renderLibrary();}catch{toast('Master JSON không đúng định dạng.');}finally{e.target.value='';}});
+  document.getElementById('masterFile').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{applyMaster(JSON.parse(await file.text()),{announce:false});toast('Đã nhập master JSON.');renderLibrary();}catch{toast('Master JSON không đúng định dạng.');}finally{e.target.value='';}});
   renderGroupControls();
+  loadRemoteMaster();
 })();
 </script>
 </body>
